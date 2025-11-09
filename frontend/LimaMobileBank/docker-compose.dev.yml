@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: lima-mobile-bank-dev
+    ports:
+      - "5173:5173"
+    environment:
+      - NODE_ENV=development
+      - PORT=5173
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/limabank}
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    container_name: lima-mobile-bank-db-dev
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=limabank
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_data_dev:

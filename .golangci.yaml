@@ -1,0 +1,64 @@
+# https://golangci-lint.run/docs/
+
+version: "2"
+
+linters:
+  # Default set of linters.
+  # The value can be:
+  # - `standard`: https://golangci-lint.run/docs/linters/#enabled-by-default
+  # - `all`: enables all linters by default.
+  # - `none`: disables all linters by default.
+  # - `fast`: enables only linters considered as "fast" (`golangci-lint help linters --json | jq '[ .[] | select(.fast==true) ] | map(.name)'`).
+  default: standard
+  exclusions:
+    generated: lax
+    warn-unused: true
+    presets:
+      - comments
+      - std-error-handling
+      - common-false-positives
+      - legacy
+    rules:
+      - path: _test\.go
+        linters:
+          - gocyclo
+          - errcheck
+          - dupl
+          - gosec
+      - path-except: _test\.go
+        linters:
+          - forbidigo
+      - path: internal/hmac/
+        text: "weak cryptographic primitive"
+        linters:
+          - gosec
+      - linters:
+          - staticcheck
+        text: "SA9003:"
+      - linters:
+          - lll
+        source: "^//go:generate "
+
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+    - goimports
+    - golines
+    - swaggo
+  exclusions:
+    warn-unused: true
+    generated: strict
+    paths:
+      - ".*\\.my\\.go$"
+      - lib/bad.go
+run:
+  timeout: 5m
+  relative-path-mode: cfg
+  issues-exit-code: 1
+  tests: true
+  allow-parallel-runners: true
+  allow-serial-runners: true
+  go: '1.25'
+  concurrency: 0

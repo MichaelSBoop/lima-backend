@@ -1,0 +1,32 @@
+services:
+  # lima-server:
+  #   image: lima-backend
+  #   ports:
+  #     - ":51515"
+  #   restart: unless-stopped
+  #   networks:
+  #     - lima-network
+  #   depends_on:
+  #     - lima-postgres
+  #   environment:
+  #     LIMA_BACKEND_DB_PASSWORD: ${POSTGRES_PASSWORD} 
+  lima-postgres:
+    image: postgres:17
+    ports:
+      - "5432:5432"
+    restart: always
+    networks:
+      - lima-network
+    volumes:
+      - lima-volume:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB}
+    
+volumes:
+  lima-volume:
+
+networks:
+  lima-network:
+     

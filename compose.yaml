@@ -1,15 +1,13 @@
 services:
   lima-server:
-    image: lima-backend
+    image: lima-backend:v0.0.1
     ports:
-      - ":51515"
+      - "51515:51515"
     restart: unless-stopped
     networks:
       - lima-network
     depends_on:
       - lima-postgres
-    environment:
-      LIMA_BACKEND_DB_PASSWORD: ${POSTGRES_PASSWORD} 
   lima-postgres:
     image: postgres:17
     ports:

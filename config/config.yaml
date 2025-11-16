@@ -3,7 +3,7 @@ log:
 
 oauth:
   client_id: team289
-  # client_secret: 123
+  client_secret: 123
   oauth_providers:
     - name: vbank
       base_url: 'https://vbank.open.bankingapi.ru/auth/bank-token'
@@ -17,16 +17,16 @@ cache:
   maximum_size: 100000
 
 http: 
-  addr: "localhost:51515"
+  addr: "0.0.0.0:51515"
 
 postgres:
   user: lima
-  password: dfltpgpswrd
-  host: localhost
+  password: 123 
+  host: lima-postgres
   port: 5432
   db_name: lima
   ssl_mode: disable
-  pool_max_conns: 4
+  pool_max_conns: 100
   pool_min_conns: 0
   pool_max_conn_lifetime: 20m
   pool_max_conn_idle_time: 30m

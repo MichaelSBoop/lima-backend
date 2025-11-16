@@ -8,7 +8,6 @@ import (
 	"github.com/MichaelSBoop/lima-backend/config"
 	appfx "github.com/MichaelSBoop/lima-backend/internal/fx"
 	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"go.yaml.in/yaml/v3"
 )
@@ -21,8 +20,7 @@ func main() {
 
 // initConfig initializes configuration with provided flags and environment variables
 func initConfig() *config.Config {
-	viper.SetEnvPrefix("LIMA_BACKEND")
-
+	// viper.SetEnvPrefix("LIMA_BACKEND")
 	flags := parseFlags()
 
 	var (

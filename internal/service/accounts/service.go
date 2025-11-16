@@ -1,92 +1,99 @@
 package accounts
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"io"
-	"net/http"
-	"net/url"
+	"sync"
 
 	"github.com/MichaelSBoop/lima-backend/internal/domain"
+	"go.uber.org/fx"
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 type Service struct {
-	client TokenizedClient
-	saver  SaveConsent
+	mu sync.Mutex
+
+	consentPoster ConsentPoster
+	consentSaver  ConsentSaver
+	accountSaver  AccountsSaver
+	accountGetter AccountsGetter
+
+	log *zap.Logger
 }
 
-func New(client TokenizedClient, saver SaveConsent) *Service {
+type In struct {
+	fx.In
+
+	ConsentPoster ConsentPoster
+	ConsentSaver  ConsentSaver
+	AccountGetter AccountsGetter
+	AccountsSaver AccountsSaver
+}
+
+func New(log *zap.Logger, params In) *Service {
 	return &Service{
-		client: client,
+		consentSaver:  params.ConsentSaver,
+		consentPoster: params.ConsentPoster,
+		accountGetter: params.AccountGetter,
+		accountSaver:  params.AccountsSaver,
+		log:           log,
 	}
 }
 
-func (s *Service) CreateAccountsConsent(ctx context.Context, permissions []string, clientID, bankName, reason string) (string, error) {
-	c, err := s.client.ClientWithToken(ctx, bankName)
-	if err != nil {
-		return "", err
-	}
-	destURL := url.URL{
-		Scheme: "https",
-		Host:   bankName + ".open.bankingapi.ru",
-		Path:   url.QueryEscape("/account-consents/request"),
-	}
-	body := struct {
-		ClientID           string   `json:"client_id" yaml:"client_id"`
-		Permissions        []string `json:"permissions" yaml:"permissions"`
-		Reason             string   `json:"reason" yaml:"reason"`
-		RequestingBank     string   `json:"requesting_bank" yaml:"requesting_bank"`
-		RequestingBankName string   `json:"requesting_bank_name" yaml:"requesting_bank_name"`
-	}{
-		ClientID:       clientID,
-		Permissions:    permissions,
-		Reason:         reason,
-		RequestingBank: bankName,
-	}
-	data, err := json.Marshal(body)
-	if err != nil {
-		return "", err
-	}
-	req, err := http.NewRequest(http.MethodPost, destURL.String(), bytes.NewBuffer(data))
-	if err != nil {
-		return "", err
-	}
-	resp, err := c.Do(req)
-	if err != nil {
-		return "", err
-	}
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
+func (s *Service) CreateAccountsConsents(ctx context.Context, consents map[string]*domain.AccountConsent) (map[string]*domain.AccountConsent, error) {
+	eg, egCtx := errgroup.WithContext(ctx)
+	resMap := make(map[string]*domain.AccountConsent)
+
+	for providerName, consent := range consents {
+		eg.Go(func() error {
+			consent, err := s.consentPoster.PostConsent(egCtx, *consent, providerName)
+			if err != nil {
+				return err
+			}
+			if err := s.consentSaver.SaveConsent(egCtx, consent, providerName); err != nil {
+				return err
+			}
+			s.mu.Lock()
+			defer s.mu.Unlock()
+			resMap[providerName] = consent
+			return nil
+		})
 	}
 
-	var respData struct {
-		Status       string
-		ConsentID    string
-		AutoApproved bool
+	err := eg.Wait()
+	if err != nil {
+		return nil, err
 	}
-	if err := json.Unmarshal(bodyBytes, &respData); err != nil {
-		return "", err
-	}
-	if err := s.saver.SaveConsent(ctx, &domain.AccountConsent{
-		ClientID:       clientID,
-		Permissions:    permissions,
-		Reason:         reason,
-		RequestingBank: bankName,
-		Status:         respData.Status,
-		ConsentID:      respData.ConsentID,
-		AutoApproved:   respData.AutoApproved,
-	}); err != nil {
-		return "", err
-	}
-	return respData.ConsentID, nil
+
+	return resMap, nil
 }
 
-type TokenizedClient interface {
-	ClientWithToken(ctx context.Context, providerName string) (*http.Client, error)
+func (s *Service) AggregateAccounts(ctx context.Context, userID string) ([]*domain.Account, error) {
+	resAccounts, err := s.accountGetter.GetAccounts(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	for _, account := range resAccounts {
+		if err = s.accountSaver.SaveAccount(ctx, account); err != nil {
+			return nil, err
+		}
+	}
+
+	return resAccounts, nil
 }
 
-type SaveConsent interface {
-	SaveConsent(ctx context.Context, consent *domain.AccountConsent) error
+type ConsentSaver interface {
+	SaveConsent(ctx context.Context, consent *domain.AccountConsent, consentProvider string) error
+}
+
+type ConsentPoster interface {
+	PostConsent(ctx context.Context, consent domain.AccountConsent, providerName string) (*domain.AccountConsent, error)
+}
+
+type AccountsSaver interface {
+	SaveAccount(ctx context.Context, accounts *domain.Account) error
+}
+
+type AccountsGetter interface {
+	GetAccounts(ctx context.Context, clientID string) ([]*domain.Account, error)
 }

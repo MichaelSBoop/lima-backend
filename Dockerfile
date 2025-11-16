@@ -26,6 +26,6 @@ COPY --from=builder /build/lima-backend /opt/lima-backend
 
 COPY ./config/config.yaml /etc/lima-backend/
 
-EXPOSE 6161-6170
+EXPOSE 51515
 
-ENTRYPOINT [ "./opt/lima-backend/lima-backend", "-c", "/etc/opt/lima-backend"]
+ENTRYPOINT [ "/opt/lima-backend/lima-backend", "-c", "/etc/lima-backend/config.yaml"]

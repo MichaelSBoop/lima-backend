@@ -1,6 +1,7 @@
 package inmem
 
 import (
+	"sync"
 	"time"
 
 	"github.com/MichaelSBoop/lima-backend/pkg/cache"
@@ -9,6 +10,8 @@ import (
 )
 
 type Cache struct {
+	mu sync.RWMutex
+
 	log *zap.Logger
 	c   *otter.Cache[string, any]
 }
@@ -30,13 +33,19 @@ func New(cfg Config, log *zap.Logger) (*Cache, error) {
 }
 
 func (c *Cache) Get(key string) (any, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.c.GetIfPresent(key)
 }
 func (c *Cache) Set(key string, val any) (any, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	return c.c.Set(key, val)
 }
 
 func (c *Cache) SetWithExpiration(key string, val any, ttl time.Duration) (any, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	v, ok := c.c.Set(key, val)
 	if !ok {
 		return nil, false
@@ -46,6 +55,8 @@ func (c *Cache) SetWithExpiration(key string, val any, ttl time.Duration) (any, 
 }
 
 func (c *Cache) Invalidate(key string) (any, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	return c.c.Invalidate(key)
 }
 

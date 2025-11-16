@@ -7,6 +7,7 @@ import (
 	"github.com/MichaelSBoop/lima-backend/internal/infra/postgres"
 	"github.com/MichaelSBoop/lima-backend/internal/service/accounts"
 	"github.com/MichaelSBoop/lima-backend/internal/service/oauth"
+	"github.com/MichaelSBoop/lima-backend/internal/service/requester"
 	"github.com/MichaelSBoop/lima-backend/pkg/cache"
 	"github.com/MichaelSBoop/lima-backend/pkg/cache/inmem"
 	"github.com/MichaelSBoop/lima-backend/pkg/logger"
@@ -29,7 +30,13 @@ func New(cfg *config.Config) fx.App {
 		fx.Provide(
 			fx.Annotate(
 				oauth.New,
-				fx.As(new(accounts.TokenizedClient)),
+				fx.As(new(requester.TokenProvider)),
+				fx.As(fx.Self()),
+			),
+			fx.Annotate(
+				requester.New,
+				fx.As(new(accounts.ConsentPoster)),
+				fx.As(new(accounts.AccountsGetter)),
 				fx.As(fx.Self()),
 			),
 		),
@@ -42,7 +49,9 @@ func New(cfg *config.Config) fx.App {
 		),
 		fx.Provide(
 			fx.Annotate(postgres.New,
-				fx.As(new(accounts.SaveConsent)),
+				fx.As(new(accounts.ConsentSaver)),
+				fx.As(new(requester.ConsentsProvider)),
+				fx.As(new(accounts.AccountsSaver)),
 				fx.As(fx.Self())),
 		),
 		fx.Provide(
